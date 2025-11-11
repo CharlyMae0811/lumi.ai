@@ -83,127 +83,65 @@
 
 <script>
 /* ---------- CONFIG ---------- */
-const N8N_WEBHOOK_URL = "https://charly175820478052.app.n8n.cloud/webhook-test/seller-call-simulation"; // replace with your webhook
+const N8N_WEBHOOK_URL = "https://YOUR-N8N-DOMAIN/webhook/lumi"; // replace with your webhook
 
-<script>
-<script>
-/* ---------- FOG SPHERE (minimal + reliable) ---------- */
+/* ---------- FOG SPHERE ---------- */
 const canvas = document.getElementById('fog');
 const ctx = canvas.getContext('2d');
-
-function resize() {
-  const s = Math.min(520, Math.floor(window.innerWidth * 0.9));
-  canvas.width = s;              // keep 1:1 to avoid DPR confusion
-  canvas.height = s;
-  canvas.style.width = s + 'px';
-  canvas.style.height = s + 'px';
+function resize(){
+  const s = Math.min(520, Math.floor(window.innerWidth*0.9));
+  canvas.width = canvas.height = s * devicePixelRatio;
+  canvas.style.width = canvas.style.height = s+"px";
 }
 window.addEventListener('resize', resize); resize();
 
-/* Mic (optional) */
-let audioCtx, analyser, micStream;
-async function initMic() {
-  if (analyser) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  const src = audioCtx.createMediaStreamSource(micStream);
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 512;
-  analyser.smoothingTimeConstant = 0.8;
-  src.connect(analyser);
+const hash=(x,y)=>Math.sin(x*127.1+y*311.7)*43758.5453%1;
+function noise2(x,y){
+  const iX=Math.floor(x),iY=Math.floor(y);
+  const fX=x-iX,fY=y-iY,uX=fX*fX*(3-2*fX),uY=fY*fY*(3-2*fY);
+  const a=hash(iX,iY),b=hash(iX+1,iY),c=hash(iX,iY+1),d=hash(iX+1,iY+1);
+  return (a*(1-uX)*(1-uY)+b*uX*(1-uY)+c*(1-uX)*uY+d*uX*uY);
 }
-function readAmplitude() {
-  if (!analyser) return 0;
-  const buf = new Uint8Array(analyser.fftSize);
-  analyser.getByteTimeDomainData(buf);
-  let sum = 0;
-  for (let i = 0; i < buf.length; i++) {
-    const v = (buf[i] - 128) / 128;
-    sum += v * v;
-  }
-  return Math.min(1, Math.sqrt(sum / buf.length) * 3); // 0..1
+let audioCtx,analyser,micStream,amp=0;
+async function initMic(){
+  if(analyser) return;
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  micStream=await navigator.mediaDevices.getUserMedia({audio:true});
+  const src=audioCtx.createMediaStreamSource(micStream);
+  analyser=audioCtx.createAnalyser(); analyser.fftSize=256; src.connect(analyser);
 }
-
-/* Simple fog made from soft blobs */
-const blobs = Array.from({ length: 20 }, () => ({
-  angle: Math.random() * Math.PI * 2,
-  radius: 0.2 + Math.random() * 0.6,
-  size: 0.12 + Math.random() * 0.28,
-  speed: (0.2 + Math.random() * 0.6) * (Math.random() < 0.5 ? -1 : 1),
-  wobble: 0.2 + Math.random() * 0.5
-}));
-
-let ampSmoothed = 0, t0 = performance.now();
-function draw() {
+function readAmplitude(){
+  if(!analyser) return 0;
+  const arr=new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(arr);
+  let sum=0; for(let i=0;i<arr.length;i++) sum+=arr[i];
+  return sum/(arr.length*255);
+}
+let t0=performance.now();
+function draw(){
   requestAnimationFrame(draw);
-  const t = (performance.now() - t0) / 1000;
-
-  // fallback breathing so you always see motion
-  const fallback = 0.25 + 0.20 * Math.sin(t * 1.2);
-  const mic = readAmplitude();
-  const target = mic || fallback;
-  ampSmoothed = ampSmoothed * 0.85 + target * 0.15;
-
-  const w = canvas.width, h = canvas.height;
-  const cx = w / 2, cy = h / 2;
-  const R = Math.min(w, h) * 0.42 * (1 + 0.06 * ampSmoothed);
-
-  ctx.clearRect(0, 0, w, h);
-
-  // clip to sphere
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, R, 0, Math.PI * 2);
-  ctx.clip();
-
-  // base glow
-  const base = ctx.createRadialGradient(cx, cy, R * 0.15, cx, cy, R);
-  base.addColorStop(0, 'rgba(120,190,255,0.35)');
-  base.addColorStop(1, 'rgba(120,190,255,0.00)');
-  ctx.fillStyle = base;
-  ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
-
-  // fog blobs
-  ctx.globalCompositeOperation = 'lighter';
-  for (const b of blobs) {
-    const a  = b.angle + b.speed * t + Math.sin(t * 0.7 + b.angle) * 0.2 * b.wobble;
-    const rr = b.radius * (1 + 0.05 * Math.sin(t * 0.9 + b.angle));
-    const x  = cx + Math.cos(a) * rr * (R * 0.95);
-    const y  = cy + Math.sin(a) * rr * (R * 0.95);
-    const rad = R * b.size * (1 + ampSmoothed * 0.4);
-
-    const mix = Math.min(1, Math.max(0, rr + 0.2)); // inner blue -> outer lavender
-    const r = Math.floor(90  + (160-90)  * mix);
-    const g = Math.floor(160 + (130-160) * mix);
-    const bl= Math.floor(255 + (255-255) * mix);
-
-    const grad = ctx.createRadialGradient(x, y, rad * 0.2, x, y, rad);
-    grad.addColorStop(0, `rgba(${r},${g},255,${0.22 + 0.25 * ampSmoothed})`);
-    grad.addColorStop(1, `rgba(${r},${g},255,0)`);
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(x, y, rad, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.restore();
-
-  // rim / outer glow
-  ctx.beginPath();
-  ctx.arc(cx, cy, R, 0, Math.PI * 2);
-  ctx.shadowBlur = 40 + ampSmoothed * 80;
-  ctx.shadowColor = 'rgba(124,211,255,0.35)';
-  ctx.strokeStyle = 'rgba(124,211,255,0.12)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  const t=(performance.now()-t0)/1000;
+  const w=canvas.width,h=canvas.height,cx=w/2,cy=h/2,R=Math.min(w,h)*0.42;
+  amp=0.85*amp+0.15*readAmplitude(); const pulse=0.06+amp*0.22;
+  ctx.clearRect(0,0,w,h); ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.clip();
+  for(let layer=0;layer<6;layer++){
+    const scale=0.8+layer*0.25,alpha=0.085-layer*0.01,swirl=t*(0.05+layer*0.02);
+    const img=ctx.createImageData(w,h),data=img.data;
+    for(let y=0;y<h;y+=2){for(let x=0;x<w;x+=2){
+      const dx=(x-cx)/R,dy=(y-cy)/R,r=Math.sqrt(dx*dx+dy*dy); if(r>1.02) continue;
+      const ang=Math.atan2(dy,dx)+swirl;
+      const rr=r*(1+pulse*Math.sin(ang*3.0+t*0.7));
+      const n=noise2((dx*scale+2.0)*2.2,(dy*scale+1.3)*2.2+t*0.25);
+      const cMix=Math.min(1,Math.max(0,1.2-rr*1.2));
+      const blu=180+60*cMix,red=120*(1-cMix),grn=160+40*cMix;
+      const k=(n*0.9+0.2)*(1-rr*rr)*alpha,idx=((y*w)+x)*4;
+      data[idx]=red*k; data[idx+1]=grn*k; data[idx+2]=blu*k; data[idx+3]=255*k;
+    }} ctx.putImageData(img,0,0);}
+  ctx.restore(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.shadowBlur=60+amp*80; ctx.shadowColor="rgba(124,211,255,0.35)";
+  ctx.strokeStyle="rgba(124,211,255,0.12)"; ctx.lineWidth=2; ctx.stroke();
 }
 draw();
-
-/* expose initMic() so your mic button can call it */
-window._lumiInitMic = initMic;
-</script>
-
-
 
 /* ---------- UI + N8N ---------- */
 const replyEl=document.getElementById('reply');
@@ -228,13 +166,11 @@ async function handle(mode){
 }
 document.getElementById('hintBtn').onclick=()=>handle('hint');
 document.getElementById('answerBtn').onclick=()=>handle('answer');
-  
-const textInput = document.getElementById('textInput');
-let rec, recognizing = false;
-  
-const micBtn = document.getElementById('micBtn');
-micBtn.addEventListener('mousedown', async () => {
-  try { await window._lumiInitMic(); } catch(e){ console.error(e); }
+
+const micBtn=document.getElementById('micBtn');
+let rec,recognizing=false;
+micBtn.addEventListener('mousedown',async()=>{
+  await initMic();
   if('webkitSpeechRecognition'in window){
     const R=new webkitSpeechRecognition();
     R.lang='en-US'; R.interimResults=true; R.continuous=true;
