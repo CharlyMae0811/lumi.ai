@@ -85,74 +85,132 @@
 /* ---------- CONFIG ---------- */
 const N8N_WEBHOOK_URL = "https://charly175820478052.app.n8n.cloud/webhook-test/seller-call-simulation"; // replace with your webhook
 
-/* ---------- FOG SPHERE ---------- */
+<script>
+/* ---------- FOG SPHERE (simple + robust) ---------- */
 const canvas = document.getElementById('fog');
-const ctx = canvas.getContext('2d');
-function resize(){
-  const s = Math.min(520, Math.floor(window.innerWidth*0.9));
-  canvas.width = canvas.height = s * devicePixelRatio;
-  canvas.style.width = canvas.style.height = s+"px";
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+function resize() {
+  const s = Math.min(520, Math.floor(window.innerWidth * 0.9));
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width = canvas.height = Math.floor(s * dpr);
+  canvas.style.width = canvas.style.height = s + 'px';
+  ctx.setTransform(1,0,0,1,0,0);              // reset any transforms
+  ctx.scale(dpr, dpr);                         // draw in CSS pixels
 }
 window.addEventListener('resize', resize); resize();
 
-const hash=(x,y)=>Math.sin(x*127.1+y*311.7)*43758.5453%1;
-function noise2(x,y){
-  const iX=Math.floor(x),iY=Math.floor(y);
-  const fX=x-iX,fY=y-iY,uX=fX*fX*(3-2*fX),uY=fY*fY*(3-2*fY);
-  const a=hash(iX,iY),b=hash(iX+1,iY),c=hash(iX,iY+1),d=hash(iX+1,iY+1);
-  return (a*(1-uX)*(1-uY)+b*uX*(1-uY)+c*(1-uX)*uY+d*uX*uY);
+/* Mic analyser (optional) */
+let audioCtx, analyser, micStream, amp = 0;
+async function initMic() {
+  if (analyser) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const src = audioCtx.createMediaStreamSource(micStream);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 512;
+  analyser.smoothingTimeConstant = 0.8;
+  analyser.minDecibels = -90;
+  analyser.maxDecibels = -10;
+  src.connect(analyser);
 }
-let audioCtx,analyser,micStream,amp=0;
-async function initMic(){
-  if(analyser) return;
-  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-  micStream=await navigator.mediaDevices.getUserMedia({audio:true});
-  const src=audioCtx.createMediaStreamSource(micStream);
-  analyser=audioCtx.createAnalyser(); analyser.fftSize=256; src.connect(analyser);
-}
-analyser.smoothingTimeConstant = 0.8;
-analyser.minDecibels = -90;
-analyser.maxDecibels = -10;
-
 function readAmplitude() {
   if (!analyser) return 0;
   const buf = new Uint8Array(analyser.fftSize);
   analyser.getByteTimeDomainData(buf);
-  // RMS around 128 (silence)
   let sum = 0;
-  for (let i = 0; i < buf.length; i++) {
-    const v = (buf[i] - 128) / 128; // -1..1
-    sum += v * v;
+  for (let i=0;i<buf.length;i++) {
+    const v = (buf[i]-128)/128; sum += v*v;
   }
-  const rms = Math.sqrt(sum / buf.length); // 0..~0.7
-  return Math.min(1, rms * 3); // scale up a bit
+  return Math.min(1, Math.sqrt(sum/buf.length)*3); // 0..1
 }
 
-let t0=performance.now();
-function draw(){
+/* Prebuilt “blobs” that swirl to form a cloud */
+const blobs = Array.from({length: 28}, (_,i) => ({
+  a: Math.random()*Math.PI*2,               // angle
+  r: 0.25 + Math.random()*0.55,             // distance (0..1 of radius)
+  s: 0.10 + Math.random()*0.35,             // size (as % of radius)
+  w: 0.15 + Math.random()*0.35,             // wobble
+  sp: (Math.random()*0.6 + 0.2) * (Math.random()<0.5?-1:1) // angular speed
+}));
+
+/* Colors */
+const baseBlue = [90, 160, 255];
+const lav      = [160, 130, 255];
+
+function mix(a,b,t){ return a+(b-a)*t; }
+
+let t0 = performance.now();
+function draw() {
   requestAnimationFrame(draw);
-  const t=(performance.now()-t0)/1000;
-  const w=canvas.width,h=canvas.height,cx=w/2,cy=h/2,R=Math.min(w,h)*0.42;
-  amp=0.85*amp+0.15*readAmplitude(); const pulse=0.06+amp*0.22;
-  ctx.clearRect(0,0,w,h); ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.clip();
-  for(let layer=0;layer<6;layer++){
-    const scale=0.8+layer*0.25,alpha=0.085-layer*0.01,swirl=t*(0.05+layer*0.02);
-    const img=ctx.createImageData(w,h),data=img.data;
-    for(let y=0;y<h;y+=2){for(let x=0;x<w;x+=2){
-      const dx=(x-cx)/R,dy=(y-cy)/R,r=Math.sqrt(dx*dx+dy*dy); if(r>1.02) continue;
-      const ang=Math.atan2(dy,dx)+swirl;
-      const rr=r*(1+pulse*Math.sin(ang*3.0+t*0.7));
-      const n=noise2((dx*scale+2.0)*2.2,(dy*scale+1.3)*2.2+t*0.25);
-      const cMix=Math.min(1,Math.max(0,1.2-rr*1.2));
-      const blu=180+60*cMix,red=120*(1-cMix),grn=160+40*cMix;
-      const k=(n*0.9+0.2)*(1-rr*rr)*alpha,idx=((y*w)+x)*4;
-      data[idx]=red*k; data[idx+1]=grn*k; data[idx+2]=blu*k; data[idx+3]=255*k;
-    }} ctx.putImageData(img,0,0);}
-  ctx.restore(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2);
-  ctx.shadowBlur=60+amp*80; ctx.shadowColor="rgba(124,211,255,0.35)";
-  ctx.strokeStyle="rgba(124,211,255,0.12)"; ctx.lineWidth=2; ctx.stroke();
+  const t = (performance.now()-t0)/1000;
+
+  // target pulse: mic if present, otherwise a gentle breathing curve
+  const mic = readAmplitude();
+  const target = mic || (0.25 + 0.20*Math.sin(t*1.2));
+  amp = amp*0.85 + target*0.15;
+
+  // canvas & sphere metrics in CSS pixels
+  const cssW = parseFloat(canvas.style.width) || 520;
+  const cssH = parseFloat(canvas.style.height) || 520;
+  const cx = cssW/2, cy = cssH/2;
+  const R  = Math.min(cssW, cssH)*0.42*(1 + 0.06*amp);  // pulse radius
+
+  // clear
+  ctx.clearRect(0,0,cssW,cssH);
+
+  // clip to a circle (the “sphere”)
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI*2);
+  ctx.clip();
+
+  // base radial glow
+  const g = ctx.createRadialGradient(cx, cy, R*0.15, cx, cy, R);
+  g.addColorStop(0, 'rgba(120, 190, 255, 0.35)');
+  g.addColorStop(1, 'rgba(120, 190, 255, 0.00)');
+  ctx.fillStyle = g;
+  ctx.fillRect(cx-R, cy-R, R*2, R*2);
+
+  // foggy blobs (soft circles) that swirl
+  ctx.globalCompositeOperation = 'lighter';
+  for (const b of blobs) {
+    const ang = b.a + b.sp*t + Math.sin(t*0.7 + b.a)*0.2*b.w;
+    const rr  = b.r * (1 + 0.05*Math.sin(t*0.9 + b.a));
+    const x   = cx + Math.cos(ang) * rr * (R*0.95);
+    const y   = cy + Math.sin(ang) * rr * (R*0.95);
+    const rad = R * b.s * (1 + amp*0.4);
+
+    const cMix = Math.min(1, Math.max(0, (rr+0.2))); // inner blue -> outer lavender
+    const r = Math.floor(mix(baseBlue[0], lav[0], cMix));
+    const g = Math.floor(mix(baseBlue[1], lav[1], cMix));
+    const bC= Math.floor(mix(baseBlue[2], lav[2], cMix));
+
+    const grad = ctx.createRadialGradient(x,y, rad*0.2, x,y, rad);
+    grad.addColorStop(0, `rgba(${r},${g},${bC},${0.22 + 0.25*amp})`);
+    grad.addColorStop(1, `rgba(${r},${g},${bC},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x,y,rad,0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.restore();
+
+  // soft rim + outer glow
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI*2);
+  ctx.shadowBlur = 40 + amp*80;
+  ctx.shadowColor = 'rgba(124,211,255,0.35)';
+  ctx.strokeStyle = 'rgba(124,211,255,0.12)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
 }
 draw();
+
+/* Keep the rest of your UI + networking code below this block */
+</script>
+
 
 /* ---------- UI + N8N ---------- */
 const replyEl=document.getElementById('reply');
