@@ -67,7 +67,7 @@ function draw(){
   const target = micVal || fallback;
   amp = amp*0.85 + target*0.15;
 
-  const rNow = R * (1 + 0.15*amp);
+  const rNow = R * (1 + 0.25*amp);
 
   ctx.clearRect(0,0,W,H);
 
