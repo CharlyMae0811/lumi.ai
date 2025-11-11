@@ -86,22 +86,22 @@
 const N8N_WEBHOOK_URL = "https://charly175820478052.app.n8n.cloud/webhook-test/seller-call-simulation"; // replace with your webhook
 
 <script>
-/* ---------- FOG SPHERE (simple + robust) ---------- */
+<script>
+/* ---------- FOG SPHERE (minimal + reliable) ---------- */
 const canvas = document.getElementById('fog');
-const ctx = canvas.getContext('2d', { willReadFrequently: true });
+const ctx = canvas.getContext('2d');
 
 function resize() {
   const s = Math.min(520, Math.floor(window.innerWidth * 0.9));
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
-  canvas.width = canvas.height = Math.floor(s * dpr);
-  canvas.style.width = canvas.style.height = s + 'px';
-  ctx.setTransform(1,0,0,1,0,0);              // reset any transforms
-  ctx.scale(dpr, dpr);                         // draw in CSS pixels
+  canvas.width = s;              // keep 1:1 to avoid DPR confusion
+  canvas.height = s;
+  canvas.style.width = s + 'px';
+  canvas.style.height = s + 'px';
 }
 window.addEventListener('resize', resize); resize();
 
-/* Mic analyser (optional) */
-let audioCtx, analyser, micStream, amp = 0;
+/* Mic (optional) */
+let audioCtx, analyser, micStream;
 async function initMic() {
   if (analyser) return;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -110,8 +110,6 @@ async function initMic() {
   analyser = audioCtx.createAnalyser();
   analyser.fftSize = 512;
   analyser.smoothingTimeConstant = 0.8;
-  analyser.minDecibels = -90;
-  analyser.maxDecibels = -10;
   src.connect(analyser);
 }
 function readAmplitude() {
@@ -119,88 +117,81 @@ function readAmplitude() {
   const buf = new Uint8Array(analyser.fftSize);
   analyser.getByteTimeDomainData(buf);
   let sum = 0;
-  for (let i=0;i<buf.length;i++) {
-    const v = (buf[i]-128)/128; sum += v*v;
+  for (let i = 0; i < buf.length; i++) {
+    const v = (buf[i] - 128) / 128;
+    sum += v * v;
   }
-  return Math.min(1, Math.sqrt(sum/buf.length)*3); // 0..1
+  return Math.min(1, Math.sqrt(sum / buf.length) * 3); // 0..1
 }
 
-/* Prebuilt “blobs” that swirl to form a cloud */
-const blobs = Array.from({length: 28}, (_,i) => ({
-  a: Math.random()*Math.PI*2,               // angle
-  r: 0.25 + Math.random()*0.55,             // distance (0..1 of radius)
-  s: 0.10 + Math.random()*0.35,             // size (as % of radius)
-  w: 0.15 + Math.random()*0.35,             // wobble
-  sp: (Math.random()*0.6 + 0.2) * (Math.random()<0.5?-1:1) // angular speed
+/* Simple fog made from soft blobs */
+const blobs = Array.from({ length: 20 }, () => ({
+  angle: Math.random() * Math.PI * 2,
+  radius: 0.2 + Math.random() * 0.6,
+  size: 0.12 + Math.random() * 0.28,
+  speed: (0.2 + Math.random() * 0.6) * (Math.random() < 0.5 ? -1 : 1),
+  wobble: 0.2 + Math.random() * 0.5
 }));
 
-/* Colors */
-const baseBlue = [90, 160, 255];
-const lav      = [160, 130, 255];
-
-function mix(a,b,t){ return a+(b-a)*t; }
-
-let t0 = performance.now();
+let ampSmoothed = 0, t0 = performance.now();
 function draw() {
   requestAnimationFrame(draw);
-  const t = (performance.now()-t0)/1000;
+  const t = (performance.now() - t0) / 1000;
 
-  // target pulse: mic if present, otherwise a gentle breathing curve
+  // fallback breathing so you always see motion
+  const fallback = 0.25 + 0.20 * Math.sin(t * 1.2);
   const mic = readAmplitude();
-  const target = mic || (0.25 + 0.20*Math.sin(t*1.2));
-  amp = amp*0.85 + target*0.15;
+  const target = mic || fallback;
+  ampSmoothed = ampSmoothed * 0.85 + target * 0.15;
 
-  // canvas & sphere metrics in CSS pixels
-  const cssW = parseFloat(canvas.style.width) || 520;
-  const cssH = parseFloat(canvas.style.height) || 520;
-  const cx = cssW/2, cy = cssH/2;
-  const R  = Math.min(cssW, cssH)*0.42*(1 + 0.06*amp);  // pulse radius
+  const w = canvas.width, h = canvas.height;
+  const cx = w / 2, cy = h / 2;
+  const R = Math.min(w, h) * 0.42 * (1 + 0.06 * ampSmoothed);
 
-  // clear
-  ctx.clearRect(0,0,cssW,cssH);
+  ctx.clearRect(0, 0, w, h);
 
-  // clip to a circle (the “sphere”)
+  // clip to sphere
   ctx.save();
   ctx.beginPath();
-  ctx.arc(cx, cy, R, 0, Math.PI*2);
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
   ctx.clip();
 
-  // base radial glow
-  const g = ctx.createRadialGradient(cx, cy, R*0.15, cx, cy, R);
-  g.addColorStop(0, 'rgba(120, 190, 255, 0.35)');
-  g.addColorStop(1, 'rgba(120, 190, 255, 0.00)');
-  ctx.fillStyle = g;
-  ctx.fillRect(cx-R, cy-R, R*2, R*2);
+  // base glow
+  const base = ctx.createRadialGradient(cx, cy, R * 0.15, cx, cy, R);
+  base.addColorStop(0, 'rgba(120,190,255,0.35)');
+  base.addColorStop(1, 'rgba(120,190,255,0.00)');
+  ctx.fillStyle = base;
+  ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
 
-  // foggy blobs (soft circles) that swirl
+  // fog blobs
   ctx.globalCompositeOperation = 'lighter';
   for (const b of blobs) {
-    const ang = b.a + b.sp*t + Math.sin(t*0.7 + b.a)*0.2*b.w;
-    const rr  = b.r * (1 + 0.05*Math.sin(t*0.9 + b.a));
-    const x   = cx + Math.cos(ang) * rr * (R*0.95);
-    const y   = cy + Math.sin(ang) * rr * (R*0.95);
-    const rad = R * b.s * (1 + amp*0.4);
+    const a  = b.angle + b.speed * t + Math.sin(t * 0.7 + b.angle) * 0.2 * b.wobble;
+    const rr = b.radius * (1 + 0.05 * Math.sin(t * 0.9 + b.angle));
+    const x  = cx + Math.cos(a) * rr * (R * 0.95);
+    const y  = cy + Math.sin(a) * rr * (R * 0.95);
+    const rad = R * b.size * (1 + ampSmoothed * 0.4);
 
-    const cMix = Math.min(1, Math.max(0, (rr+0.2))); // inner blue -> outer lavender
-    const r = Math.floor(mix(baseBlue[0], lav[0], cMix));
-    const g = Math.floor(mix(baseBlue[1], lav[1], cMix));
-    const bC= Math.floor(mix(baseBlue[2], lav[2], cMix));
+    const mix = Math.min(1, Math.max(0, rr + 0.2)); // inner blue -> outer lavender
+    const r = Math.floor(90  + (160-90)  * mix);
+    const g = Math.floor(160 + (130-160) * mix);
+    const bl= Math.floor(255 + (255-255) * mix);
 
-    const grad = ctx.createRadialGradient(x,y, rad*0.2, x,y, rad);
-    grad.addColorStop(0, `rgba(${r},${g},${bC},${0.22 + 0.25*amp})`);
-    grad.addColorStop(1, `rgba(${r},${g},${bC},0)`);
+    const grad = ctx.createRadialGradient(x, y, rad * 0.2, x, y, rad);
+    grad.addColorStop(0, `rgba(${r},${g},255,${0.22 + 0.25 * ampSmoothed})`);
+    grad.addColorStop(1, `rgba(${r},${g},255,0)`);
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(x,y,rad,0,Math.PI*2);
+    ctx.arc(x, y, rad, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalCompositeOperation = 'source-over';
   ctx.restore();
 
-  // soft rim + outer glow
+  // rim / outer glow
   ctx.beginPath();
-  ctx.arc(cx, cy, R, 0, Math.PI*2);
-  ctx.shadowBlur = 40 + amp*80;
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.shadowBlur = 40 + ampSmoothed * 80;
   ctx.shadowColor = 'rgba(124,211,255,0.35)';
   ctx.strokeStyle = 'rgba(124,211,255,0.12)';
   ctx.lineWidth = 2;
@@ -208,8 +199,10 @@ function draw() {
 }
 draw();
 
-/* Keep the rest of your UI + networking code below this block */
+/* expose initMic() so your mic button can call it */
+window._lumiInitMic = initMic;
 </script>
+
 
 
 /* ---------- UI + N8N ---------- */
@@ -235,11 +228,13 @@ async function handle(mode){
 }
 document.getElementById('hintBtn').onclick=()=>handle('hint');
 document.getElementById('answerBtn').onclick=()=>handle('answer');
-
-const micBtn=document.getElementById('micBtn');
-let rec,recognizing=false;
-micBtn.addEventListener('mousedown',async()=>{
-  await initMic();
+  
+const textInput = document.getElementById('textInput');
+let rec, recognizing = false;
+  
+const micBtn = document.getElementById('micBtn');
+micBtn.addEventListener('mousedown', async () => {
+  try { await window._lumiInitMic(); } catch(e){ console.error(e); }
   if('webkitSpeechRecognition'in window){
     const R=new webkitSpeechRecognition();
     R.lang='en-US'; R.interimResults=true; R.continuous=true;
