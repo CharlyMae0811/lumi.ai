@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>lumi</title>
+<style>
+  :root { --fg:#cfe7ff; --accent:#79b7ff; --glow:#7cd3ff; }
+  html,body {
+    margin:0; height:100%; background:#0a0f14; color:#dfe8f2;
+    font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap { max-width:980px; margin:0 auto; padding:28px 20px 48px; }
+  header { text-align:center; margin-bottom:18px; }
+  h1 { margin:0; font-weight:700; letter-spacing:.02em; font-size:40px; color:#eaf4ff; }
+  .sub { opacity:.75; margin-top:4px; }
+  .row { display:flex; justify-content:space-between; align-items:center; margin:18px 0 8px; }
+  .chip {
+    border:1px solid rgba(124,211,255,.28); padding:8px 14px; border-radius:12px;
+    color:#cde9ff; background:linear-gradient(180deg, rgba(124,211,255,.09), rgba(124,211,255,.03));
+    box-shadow:0 0 18px rgba(124,211,255,.08) inset;
+  }
+  .difficulty label { margin:0 6px; cursor:pointer; }
+  .stage { position:relative; height:420px; display:grid; place-items:center; }
+  canvas { width:min(520px, 90vw); height:min(520px, 90vw);
+           filter:drop-shadow(0 20px 60px rgba(124,211,255,.25)); }
+  .controls { display:flex; gap:18px; justify-content:center; margin-top:18px; flex-wrap:wrap; }
+  button, .micBtn {
+    background:rgba(22,45,70,.6); border:1px solid rgba(124,211,255,.4);
+    border-radius:14px; padding:14px 18px; font-size:16px; color:#dff1ff; cursor:pointer;
+    box-shadow:0 0 24px rgba(124,211,255,.15), inset 0 0 20px rgba(124,211,255,.05);
+    transition:transform .1s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  button:hover, .micBtn:hover {
+    transform:translateY(-1px);
+    box-shadow:0 0 34px rgba(124,211,255,.28), inset 0 0 24px rgba(124,211,255,.08);
+  }
+  .micBtn { width:64px; height:64px; border-radius:50%; display:grid; place-items:center; }
+  .reply {
+    margin:18px auto 0; max-width:760px; padding:14px 16px;
+    border:1px solid rgba(124,211,255,.25); border-radius:12px;
+    background:rgba(15,25,35,.6); white-space:pre-wrap; min-height:44px;
+  }
+  .inputRow { display:flex; gap:10px; justify-content:center; margin:14px 0 0; }
+  .inputRow input {
+    width:min(560px, 90vw); padding:12px 14px; border-radius:12px;
+    border:1px solid rgba(124,211,255,.25);
+    background:rgba(12,22,32,.6); color:#eaf4ff; outline:none;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>lumi</h1>
+      <div class="sub">Train. Learn. Master.</div>
+    </header>
+
+    <div class="row">
+      <div class="chip">FBA</div>
+      <div class="difficulty chip">
+        Difficulty:
+        <label><input type="radio" name="diff" value="easy"> Easy</label>
+        <label><input type="radio" name="diff" value="medium" checked> Medium</label>
+        <label><input type="radio" name="diff" value="hard"> Hard</label>
+      </div>
+    </div>
+
+    <div class="stage"><canvas id="fog"></canvas></div>
+
+    <div class="controls">
+      <button id="hintBtn">Give me hints</button>
+      <div class="micBtn" id="micBtn" title="Hold to talk">🎤</div>
+      <button id="answerBtn">Answer for me</button>
+    </div>
+
+    <div class="inputRow">
+      <input id="textInput" placeholder="Say or type your prompt…" />
+    </div>
+
+    <div class="reply" id="reply"></div>
+  </div>
+
+<script>
+/* ---------- CONFIG ---------- */
+const N8N_WEBHOOK_URL = "https://YOUR-N8N-DOMAIN/webhook/lumi"; // replace with your webhook
+
+/* ---------- FOG SPHERE ---------- */
+const canvas = document.getElementById('fog');
+const ctx = canvas.getContext('2d');
+function resize(){
+  const s = Math.min(520, Math.floor(window.innerWidth*0.9));
+  canvas.width = canvas.height = s * devicePixelRatio;
+  canvas.style.width = canvas.style.height = s+"px";
+}
+window.addEventListener('resize', resize); resize();
+
+const hash=(x,y)=>Math.sin(x*127.1+y*311.7)*43758.5453%1;
+function noise2(x,y){
+  const iX=Math.floor(x),iY=Math.floor(y);
+  const fX=x-iX,fY=y-iY,uX=fX*fX*(3-2*fX),uY=fY*fY*(3-2*fY);
+  const a=hash(iX,iY),b=hash(iX+1,iY),c=hash(iX,iY+1),d=hash(iX+1,iY+1);
+  return (a*(1-uX)*(1-uY)+b*uX*(1-uY)+c*(1-uX)*uY+d*uX*uY);
+}
+let audioCtx,analyser,micStream,amp=0;
+async function initMic(){
+  if(analyser) return;
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  micStream=await navigator.mediaDevices.getUserMedia({audio:true});
+  const src=audioCtx.createMediaStreamSource(micStream);
+  analyser=audioCtx.createAnalyser(); analyser.fftSize=256; src.connect(analyser);
+}
+function readAmplitude(){
+  if(!analyser) return 0;
+  const arr=new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(arr);
+  let sum=0; for(let i=0;i<arr.length;i++) sum+=arr[i];
+  return sum/(arr.length*255);
+}
+let t0=performance.now();
+function draw(){
+  requestAnimationFrame(draw);
+  const t=(performance.now()-t0)/1000;
+  const w=canvas.width,h=canvas.height,cx=w/2,cy=h/2,R=Math.min(w,h)*0.42;
+  amp=0.85*amp+0.15*readAmplitude(); const pulse=0.06+amp*0.22;
+  ctx.clearRect(0,0,w,h); ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.clip();
+  for(let layer=0;layer<6;layer++){
+    const scale=0.8+layer*0.25,alpha=0.085-layer*0.01,swirl=t*(0.05+layer*0.02);
+    const img=ctx.createImageData(w,h),data=img.data;
+    for(let y=0;y<h;y+=2){for(let x=0;x<w;x+=2){
+      const dx=(x-cx)/R,dy=(y-cy)/R,r=Math.sqrt(dx*dx+dy*dy); if(r>1.02) continue;
+      const ang=Math.atan2(dy,dx)+swirl;
+      const rr=r*(1+pulse*Math.sin(ang*3.0+t*0.7));
+      const n=noise2((dx*scale+2.0)*2.2,(dy*scale+1.3)*2.2+t*0.25);
+      const cMix=Math.min(1,Math.max(0,1.2-rr*1.2));
+      const blu=180+60*cMix,red=120*(1-cMix),grn=160+40*cMix;
+      const k=(n*0.9+0.2)*(1-rr*rr)*alpha,idx=((y*w)+x)*4;
+      data[idx]=red*k; data[idx+1]=grn*k; data[idx+2]=blu*k; data[idx+3]=255*k;
+    }} ctx.putImageData(img,0,0);}
+  ctx.restore(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.shadowBlur=60+amp*80; ctx.shadowColor="rgba(124,211,255,0.35)";
+  ctx.strokeStyle="rgba(124,211,255,0.12)"; ctx.lineWidth=2; ctx.stroke();
+}
+draw();
+
+/* ---------- UI + N8N ---------- */
+const replyEl=document.getElementById('reply');
+const textInput=document.getElementById('textInput');
+async function sendToN8N({text,mode}){
+  const diff=(document.querySelector('input[name="diff"]:checked')||{}).value||'medium';
+  const res=await fetch(N8N_WEBHOOK_URL,{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({text,mode,difficulty:diff})
+  });
+  if(!res.ok) throw new Error(`n8n ${res.status}`);
+  const data=await res.json(); return data.reply||"(no reply)";
+}
+function speak(text){
+  try{const u=new SpeechSynthesisUtterance(text);u.rate=1;u.pitch=1;u.lang='en-US';
+    speechSynthesis.cancel();speechSynthesis.speak(u);}catch{}
+}
+async function handle(mode){
+  const text=textInput.value.trim()||"(no prompt)"; replyEl.textContent="…";
+  try{const out=await sendToN8N({text,mode}); replyEl.textContent=out; speak(out);}
+  catch(e){replyEl.textContent="Error: "+e.message;}
+}
+document.getElementById('hintBtn').onclick=()=>handle('hint');
+document.getElementById('answerBtn').onclick=()=>handle('answer');
+
+const micBtn=document.getElementById('micBtn');
+let rec,recognizing=false;
+micBtn.addEventListener('mousedown',async()=>{
+  await initMic();
+  if('webkitSpeechRecognition'in window){
+    const R=new webkitSpeechRecognition();
+    R.lang='en-US'; R.interimResults=true; R.continuous=true;
+    R.onresult=(e)=>{let s='';for(let i=0;i<e.results.length;i++)s+=e.results[i][0].transcript;
+      textInput.value=s;};
+    R.onend=()=>recognizing=false; rec=R; recognizing=true; R.start();
+  }
+});
+window.addEventListener('mouseup',()=>{if(rec&&recognizing){rec.stop();recognizing=false;}});
+document.body.addEventListener('click',()=>initMic(),{once:true});
+</script>
+</body>
+</html>
