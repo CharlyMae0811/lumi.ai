@@ -110,13 +110,24 @@ async function initMic(){
   const src=audioCtx.createMediaStreamSource(micStream);
   analyser=audioCtx.createAnalyser(); analyser.fftSize=256; src.connect(analyser);
 }
-function readAmplitude(){
-  if(!analyser) return 0;
-  const arr=new Uint8Array(analyser.frequencyBinCount);
-  analyser.getByteFrequencyData(arr);
-  let sum=0; for(let i=0;i<arr.length;i++) sum+=arr[i];
-  return sum/(arr.length*255);
+analyser.smoothingTimeConstant = 0.8;
+analyser.minDecibels = -90;
+analyser.maxDecibels = -10;
+
+function readAmplitude() {
+  if (!analyser) return 0;
+  const buf = new Uint8Array(analyser.fftSize);
+  analyser.getByteTimeDomainData(buf);
+  // RMS around 128 (silence)
+  let sum = 0;
+  for (let i = 0; i < buf.length; i++) {
+    const v = (buf[i] - 128) / 128; // -1..1
+    sum += v * v;
+  }
+  const rms = Math.sqrt(sum / buf.length); // 0..~0.7
+  return Math.min(1, rms * 3); // scale up a bit
 }
+
 let t0=performance.now();
 function draw(){
   requestAnimationFrame(draw);
