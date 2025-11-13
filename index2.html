@@ -1,0 +1,945 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LUMI – Future Call Simulator Mockup</title>
+
+<style>
+  :root{
+    --bg:#05070b;
+    --panel-bg:rgba(15,25,35,.85);
+    --panel-bg-soft:rgba(15,25,35,.6);
+    --border-subtle:rgba(124,211,255,.25);
+    --border-strong:rgba(124,211,255,.6);
+    --text-main:#eaf4ff;
+    --text-soft:#8ea7c2;
+    --accent:#7cd3ff;
+  }
+
+  html,body{
+    margin:0;
+    height:100%;
+    background:radial-gradient(circle at top, #101b2b 0%, #0a111c 45%, #05070b 75%, #020308 100%);
+    color:var(--text-main);
+    font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    overflow-x:hidden;
+  }
+
+  /* ----- HEADER ----- */
+  .header-wrap {
+    width:100%;
+    padding:20px 24px 0;
+    box-sizing:border-box;
+    transition:opacity .7s ease, transform .7s ease;
+  }
+
+  .header {
+    max-width:1200px;
+    margin:0 auto;
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    align-items:center;
+  }
+
+  .header-left { display:flex; justify-content:flex-start; }
+  .header-center { display:flex; justify-content:center; }
+  .header-right { display:flex; justify-content:flex-end; }
+
+  .logo,
+  .orinoco-logo{
+    width:auto;
+    display:inline-block;
+  }
+
+  .logo{
+    height:110px;
+    filter:
+      brightness(2.6)
+      drop-shadow(0 0 26px rgba(120,200,255,1))
+      drop-shadow(0 0 55px rgba(160,120,255,.9));
+    transition:.3s ease;
+  }
+
+  .orinoco-logo{
+    height:70px;
+    opacity:.9;
+    filter:
+      brightness(2.1)
+      drop-shadow(0 0 16px rgba(120,200,255,.7));
+  }
+
+  .icon-button{
+    background:transparent;
+    border:1px solid rgba(124,211,255,.4);
+    border-radius:999px;
+    color:var(--text-main);
+    padding:10px 14px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    cursor:pointer;
+    font-size:13px;
+  }
+
+  .icon-button span{
+    font-size:18px;
+    line-height:1;
+  }
+
+  .menu-panel{
+    position:absolute;
+    right:24px;
+    top:56px;
+    min-width:180px;
+    background:var(--panel-bg);
+    border-radius:14px;
+    border:1px solid var(--border-subtle);
+    box-shadow:0 18px 45px rgba(0,0,0,.65);
+    padding:8px 0;
+    display:none;
+    z-index:50;
+  }
+  .menu-panel.open{ display:block; }
+
+  .menu-item{
+    padding:8px 14px;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .menu-item:hover{
+    background:rgba(120,200,255,.12);
+  }
+
+  /* ----- MAIN LAYOUT ----- */
+  .app{
+    display:grid;
+    grid-template-columns:minmax(0, 360px) minmax(0, 420px) minmax(0, 360px);
+    gap:24px;
+    align-items:start;
+    padding:16px 24px 24px;
+    max-width:1200px;
+    width:100%;
+    margin:0 auto;
+    box-sizing:border-box;
+    transition:opacity .7s ease, transform .7s ease;
+  }
+
+  .col{ min-width:0; }
+
+  @media(max-width:960px){
+    .app{
+      grid-template-columns:1fr;
+    }
+  }
+
+  /* ----- STAGE + SPHERE ----- */
+  .stage{
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    margin-top:12px;
+    transition:justify-content .7s ease;
+  }
+
+  .sphere-wrapper{
+    position:relative;
+    display:inline-block;
+    transform:translateY(-60px);
+    transition:transform .9s ease;
+  }
+
+  #fog{
+    width:min(520px,90vw);
+    height:min(520px,90vw);
+    display:block;
+    filter:drop-shadow(0 20px 60px rgba(124,211,255,.25));
+  }
+
+  .sphere-logo{
+    position:absolute;
+    inset:0;
+    margin:auto;
+    height:140px;
+    filter:
+      invert(1)
+      drop-shadow(0 0 35px rgba(180,220,255,1))
+      drop-shadow(0 0 70px rgba(180,140,255,.95));
+    opacity:0;
+    transition:opacity .9s ease, transform .9s ease;
+    pointer-events:none;
+  }
+
+  .center-controls{
+    margin-top:4px;
+    transition:opacity .7s ease, transform .7s ease;
+  }
+
+  /* ----- BUTTONS & PANELS ----- */
+  .row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    justify-content:center;
+    margin-top:10px;
+    flex-wrap:wrap;
+  }
+  .row-space{ justify-content:space-between; }
+  .row-left{ justify-content:flex-start; }
+
+  button{
+    background:#17324d;
+    border:1px solid rgba(124,211,255,.45);
+    color:#dff1ff;
+    border-radius:12px;
+    padding:10px 14px;
+    cursor:pointer;
+    font-size:13px;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    transition:.2s ease;
+  }
+  button[disabled]{ opacity:.6; cursor:not-allowed; }
+
+  button:hover:not([disabled]),
+  button:focus-visible:not([disabled]) {
+    box-shadow:
+      0 0 20px rgba(130,180,255,1),
+      0 0 45px rgba(160,120,255,0.9),
+      0 0 70px rgba(160,120,255,0.7);
+    border-color: rgba(180,220,255,1);
+    background: #21486f;
+    transform: translateY(-1px);
+  }
+
+  .btn-ghost{
+    background:transparent;
+    border-style:dashed;
+  }
+
+  .btn-pill{
+    border-radius:999px;
+    padding-inline:12px;
+    font-size:12px;
+  }
+  .btn-pill.active{
+    background:rgba(124,211,255,.2);
+    border-color:var(--border-strong);
+  }
+
+  .controls-label{
+    font-size:12px;
+    color:var(--text-soft);
+    margin-right:6px;
+    white-space:nowrap;
+  }
+
+  .panel{
+    border:1px solid var(--border-subtle);
+    border-radius:14px;
+    background:var(--panel-bg);
+    padding:14px 14px 12px;
+    transition:opacity .7s ease, transform .7s ease;
+  }
+
+  .panel-soft{
+    background:var(--panel-bg-soft);
+  }
+
+  .panel h3{
+    margin:0 0 6px 0;
+    font-size:14px;
+  }
+
+  .panel-subtitle{
+    margin:0;
+    font-size:11px;
+    color:var(--text-soft);
+  }
+
+  .select{
+    border-radius:10px;
+    padding:7px 10px;
+    border:1px solid var(--border-subtle);
+    background:rgba(12,22,32,.85);
+    color:var(--text-main);
+    font-size:12px;
+    min-width:200px;
+  }
+
+  .box{
+    min-height:120px;
+    max-height:300px;
+    white-space:pre-wrap;
+    background:rgba(10,18,28,.7);
+    border:1px solid rgba(124,211,255,.18);
+    border-radius:10px;
+    padding:6px 10px;
+    font-size:13px;
+    line-height:1.2;
+    overflow-y:auto;
+  }
+
+  .box-compact{
+    min-height:60px;
+    max-height:160px;
+    font-size:12px;
+    opacity:.9;
+  }
+
+  /* Chat spacing */
+  #dialogueTranscript {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+  .msg {
+    margin: 0 0 4px 0 !important;
+    padding: 0 !important;
+  }
+  .msg-role {
+    margin: 0 0 2px 0 !important;
+    padding: 0 !important;
+    line-height: 1.1 !important;
+    font-weight:600;
+    font-size:11px;
+  }
+  .msg-role.lumi{ color:#9ee2ff; }
+  .msg-role.am{ color:#f7d38c; }
+  .msg-body {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.15 !important;
+    font-size:12px;
+  }
+  .msg-meta {
+    margin-top: 4px !important;
+    line-height: 1.1 !important;
+    font-size:11px;
+    color:var(--text-soft);
+  }
+  .box-chat {
+    white-space: normal !important;
+    line-height: 1.2 !important;
+  }
+
+  /* scrollbars */
+  .box, .box-chat, .box-compact {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(124,211,255,0.25) rgba(20,30,45,0.4);
+  }
+  .box::-webkit-scrollbar,
+  .box-chat::-webkit-scrollbar,
+  .box-compact::-webkit-scrollbar {
+    width: 8px;
+  }
+  .box::-webkit-scrollbar-track,
+  .box-chat::-webkit-scrollbar-track,
+  .box-compact::-webkit-scrollbar-track {
+    background: rgba(12,22,32,0);
+    border-radius: 10px;
+  }
+  .box::-webkit-scrollbar-thumb,
+  .box-chat::-webkit-scrollbar-thumb,
+  .box-compact::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+      to bottom,
+      rgba(124,211,255,0.35),
+      rgba(160,120,255,0.35)
+    );
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.05);
+    box-shadow: 0 0 12px rgba(124,211,255,0.4);
+  }
+
+  .score-number{
+    font-size:26px;
+    font-weight:600;
+    letter-spacing:.04em;
+  }
+
+  .score-badge{
+    display:inline-block;
+    margin-left:8px;
+    padding:3px 8px;
+    border-radius:999px;
+    font-size:10px;
+    border:1px solid rgba(124,211,255,.6);
+    background:rgba(124,211,255,.12);
+    color:var(--accent);
+  }
+
+  .list-label{
+    font-size:12px;
+    font-weight:600;
+    margin-bottom:2px;
+  }
+  .mini-list{
+    margin:0;
+    padding-left:16px;
+    font-size:11px;
+  }
+  .mini-list li{
+    margin-bottom:4px;
+  }
+  .learn-link{
+    color:#ffc98a;
+    text-decoration:underline;
+    cursor:pointer;
+  }
+
+  /* ----- FOOTER ----- */
+  .footer{
+    max-width:1200px;
+    margin:8px auto 16px;
+    padding:0 24px;
+    font-size:11px;
+    color:var(--text-soft);
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    flex-wrap:wrap;
+    border-top:1px solid rgba(124,211,255,0.03);
+    padding-top:8px;
+    transition:opacity .7s ease, transform .7s ease;
+  }
+
+  /* ----- INTRO STATE ----- */
+  body.intro .header-wrap,
+  body.intro .footer{
+    opacity:0;
+    pointer-events:none;
+  }
+
+  body.intro .col-left,
+  body.intro .col-right,
+  body.intro .center-controls{
+    opacity:0;
+    pointer-events:none;
+    transform:translateY(15px);
+  }
+
+  body.intro .app{
+    max-width:100vw;
+    grid-template-columns:1fr;
+  }
+
+  body.intro .col-center{
+    grid-column:1 / -1;
+  }
+
+  body.intro .stage{
+    min-height:100vh;
+    align-items:center;
+    justify-content:center;
+  }
+
+  body.intro .sphere-wrapper{
+    transform:scale(1.4) translateY(0);
+  }
+
+  body.intro .sphere-logo{
+    opacity:1;
+  }
+
+  /* ----- FEEDBACK MODE ----- */
+  body.feedback-mode .col-left,
+  body.feedback-mode .col-right,
+  body.feedback-mode .center-controls,
+  body.feedback-mode .footer{
+    opacity:0;
+    pointer-events:none;
+    transform:translateY(10px);
+  }
+
+  body.feedback-mode .app{
+    grid-template-columns:minmax(0, 460px) minmax(0, 1fr);
+    max-width:1100px;
+  }
+
+  body.feedback-mode .col-center{
+    grid-column:auto;
+  }
+
+  body.feedback-mode .stage{
+    justify-content:flex-start;
+  }
+
+  body.feedback-mode .sphere-wrapper{
+    transform:translateX(-160px) translateY(-40px) scale(0.95);
+  }
+
+  @media(max-width:960px){
+    body.feedback-mode .app{
+      grid-template-columns:1fr;
+      max-width:100%;
+    }
+    body.feedback-mode .stage{
+      justify-content:center;
+    }
+    body.feedback-mode .sphere-wrapper{
+      transform:translateY(-20px) scale(0.95);
+    }
+  }
+
+  /* ----- RESULTS PANEL (Session score & feedback) ----- */
+  #resultsPanel{
+    position:fixed;
+    top:110px;
+    right:24px;
+    width:380px;
+    max-width:90vw;
+    background:rgba(8,14,24,.98);
+    border-radius:18px;
+    border:1px solid rgba(124,211,255,.5);
+    box-shadow:0 18px 60px rgba(0,0,0,.8);
+    padding:16px 18px 18px;
+    opacity:0;
+    transform:translateX(40px);
+    pointer-events:none;
+    transition:opacity .6s ease, transform .6s ease;
+    max-height:calc(100vh - 140px);
+    overflow-y:auto;
+    z-index:40;
+  }
+
+  body.feedback-mode #resultsPanel{
+    opacity:1;
+    transform:translateX(0);
+    pointer-events:auto;
+  }
+
+  @media(max-width:768px){
+    #resultsPanel{
+      top:130px;
+      left:50%;
+      right:auto;
+      transform:translateX(50px);
+      max-width:92vw;
+    }
+    body.feedback-mode #resultsPanel{
+      transform:translateX(-50%);
+    }
+  }
+</style>
+</head>
+<body class="intro">
+
+<!-- HEADER -->
+<div class="header-wrap">
+  <div class="header">
+    <div class="header-left">
+      <img src="orinoco.png" alt="Orinoco mock logo" class="orinoco-logo" />
+    </div>
+    <div class="header-center">
+      <img src="logo.png" alt="LUMI logo" class="logo" />
+    </div>
+    <div class="header-right" style="position:relative;">
+      <button id="menuBtn" class="icon-button" aria-label="Open menu">
+        <span>☰</span> Menu
+      </button>
+      <div id="menuPanel" class="menu-panel">
+        <div class="menu-item">Dashboard</div>
+        <div class="menu-item">Session history</div>
+        <div class="menu-item">Skill library</div>
+        <div class="menu-item">Team view</div>
+        <div class="menu-item">Settings</div>
+        <div class="menu-item">Help & FAQ</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="app">
+  <!-- LEFT: transcript -->
+  <div class="col col-left">
+    <div class="panel">
+      <h3>Dialogue transcript</h3>
+      <p class="panel-subtitle">
+        Full history of this simulated call. Future versions will sync with real calls and Lumi’s memory.
+      </p>
+      <div id="dialogueTranscript" class="box box-chat" style="margin-top:8px;">
+        <div class="msg">
+          <div class="msg-role am">You – Account Manager</div>
+          <div class="msg-body">
+            Hi, this is Charlotte from Amazon. Thanks for taking the time today!
+            Before we dive in, could you give me a quick overview of your brand
+            and what you’re focusing on this quarter?
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="msg-role lumi">Seller – LUMI (Ada – Easy)</div>
+          <div class="msg-body">
+            Hi Charlotte, sure. We sell premium kitchen accessories in the US and EU.
+            Right now our main focus is keeping our top three ASINs in stock and
+            improving margins a bit – advertising costs have gone up a lot recently.
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="msg-role am">You – Account Manager</div>
+          <div class="msg-body">
+            That makes sense. So availability on your hero products and healthier
+            margins are the two main goals. To make sure I prioritise the right
+            topics for you today, are there any specific issues with FBA or
+            shipments that are worrying you at the moment?
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="msg-role lumi">Seller – LUMI (Ada – Easy)</div>
+          <div class="msg-body">
+            Yes, actually. Our last few shipments from Germany to US FBA were stuck
+            in customs for weeks. Some were even marked as abandoned. It’s hard
+            to plan inventory when that happens.
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="msg-role am">You – Account Manager</div>
+          <div class="msg-body">
+            I hear you – if inbound is unpredictable, it’s almost impossible to
+            protect your best-sellers. What I’d like to do is: first clarify what’s
+            triggering those delays, then translate the impact into lost sales, and
+            finally show you how we can reduce that risk going forward. How does that
+            plan sound?
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="msg-role lumi">Seller – LUMI (Ada – Easy)</div>
+          <div class="msg-body">
+            That sounds good. As long as we can avoid those “abandoned shipment”
+            notifications and keep our main ASINs in stock, I’m open to your
+            suggestions.
+          </div>
+        </div>
+
+        <div class="msg msg-meta">
+          Last updated • Scenario: “EU → US FBA customs delays” • Roleplay: You = AM, LUMI = Seller
+        </div>
+      </div>
+      <div class="row row-left" style="margin-top:10px;">
+        <button id="feedbackBtn">💬 Give me feedback</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER: orb only -->
+  <div class="col col-center">
+    <div class="stage">
+      <div class="sphere-wrapper">
+        <canvas id="fog" width="520" height="520"></canvas>
+        <img src="logo.png" alt="LUMI logo" class="sphere-logo" />
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: controls + selections (no score box here) -->
+  <div class="col col-right">
+    <div class="panel panel-soft">
+      <h3>Call controls</h3>
+      <p class="panel-subtitle">Prototype controls for this seller scenario.</p>
+
+      <div class="row">
+        <button id="playBtn">▶ Play scenario</button>
+        <button id="pauseBtn">⏸ Pause</button>
+        <button id="restartBtn">⏮ Restart</button>
+      </div>
+
+      <div class="row">
+        <button id="hintBtn" class="btn-ghost">💡 Give me a hint</button>
+        <button id="answerBtn" class="btn-ghost">✨ Answer for me</button>
+      </div>
+
+      <div class="row row-left" style="margin-top:14px;">
+        <span class="controls-label">Difficulty</span>
+        <button class="btn-pill difficulty-btn active" data-level="easy">Easy</button>
+        <button class="btn-pill difficulty-btn" data-level="medium">Medium</button>
+        <button class="btn-pill difficulty-btn" data-level="hard">Hard</button>
+        <button class="btn-pill difficulty-btn" data-level="surprise">Surprise me</button>
+      </div>
+
+      <div class="row row-left" style="margin-top:12px;">
+        <span class="controls-label">Pick your seller</span>
+        <select id="personaSelect" class="select">
+          <option>Ada Lovell – Curious lifestyle brand founder (F)</option>
+          <option>Grace Harper – Structure-focused COO who likes clear plans (F)</option>
+          <option>Kathleen Boothman – Methodical marketplace strategist (F)</option>
+          <option>Alan Turinger – ROI-focused finance-minded operator (M)</option>
+          <option>Linus Torvaldsen – Hands-on private-label operator (M)</option>
+          <option>Jeff River – Visionary, customer-obsessed brand founder (M)</option>
+          <option>Sasha Costaro – Values-driven sustainable business owner (NB)</option>
+        </select>
+      </div>
+
+      <div class="row row-left" style="margin-top:12px;">
+        <span class="controls-label">Topic</span>
+        <select id="topicSelect" class="select">
+          <option>ESM-Free pitch</option>
+          <option>SAS pitch</option>
+          <option>FBA optimisation</option>
+          <option>Black Friday deals</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- THIRD VIEW: Session score & feedback (only in feedback mode) -->
+<div id="resultsPanel">
+  <h3>Session score &amp; feedback</h3>
+  <p class="panel-subtitle">
+    Lumi will summarise each call with an unbiased score and targeted coaching hooks.
+  </p>
+
+  <div style="margin-top:6px;">
+    <div class="row row-space" style="justify-content:space-between;">
+      <div>
+        <div class="score-number">
+          86/100
+          <span class="score-badge">Prototype score</span>
+        </div>
+        <div class="panel-subtitle">
+          Based on call structure, objection handling, seller confidence, and clear next steps.
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <span class="controls-label">Linked training</span><br/>
+        <button class="btn-pill">Open Amazon Learn summary</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:12px; display:grid; gap:10px;">
+    <div>
+      <div class="list-label">Top 3 strengths</div>
+      <ul class="mini-list">
+        <li>
+          Clear agenda setting –
+          <span class="learn-link">Practise in Amazon Learn: Call Openers</span>
+        </li>
+        <li>
+          Needs discovery questions –
+          <span class="learn-link">Practise in Amazon Learn: Discovery Deep Dive</span>
+        </li>
+        <li>
+          Paraphrasing & mirroring –
+          <span class="learn-link">Practise in Amazon Learn: Active Listening</span>
+        </li>
+      </ul>
+    </div>
+    <div>
+      <div class="list-label">Top 3 development areas</div>
+      <ul class="mini-list">
+        <li>
+          Handling pricing objections –
+          <span class="learn-link">Practise in Amazon Learn: Value Framing</span>
+        </li>
+        <li>
+          Sharper call closes –
+          <span class="learn-link">Practise in Amazon Learn: Closing & Next Steps</span>
+        </li>
+        <li>
+          Using data points confidently –
+          <span class="learn-link">Practise in Amazon Learn: Storytelling with Metrics</span>
+        </li>
+      </ul>
+    </div>
+    <div>
+      <div class="list-label">Detailed feedback (mock)</div>
+      <div class="box box-compact">
+        You built strong rapport and clarified the seller’s definition of success early in the call.
+        To reach “Hard” level, focus on quantifying the impact of each issue in revenue terms
+        and linking ESM features directly to those numbers.
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;">
+    <button id="backBtn">⬅ Back to main view</button>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <span>LUMI – Sales Conversation Coach (UI mockup only, non-functional demo)</span>
+  <span>© 2025 LUMI Demo Environment • Inspired by Amazon learning culture – not an official Amazon product.</span>
+</footer>
+
+<script>
+/* ====== foggy sphere (original-style animation) ====== */
+const canvas = document.getElementById('fog');
+const ctx = canvas.getContext('2d');
+
+function sizeCanvas(){
+  const s = Math.min(520, Math.floor(window.innerWidth*0.9));
+  canvas.width = s;
+  canvas.height = s;
+}
+sizeCanvas();
+window.addEventListener('resize', sizeCanvas);
+
+let R = Math.min(canvas.width, canvas.height)*0.42;
+let audioCtx, analyser, micStream, amp = 0;
+
+function readAmplitude(){
+  if (!analyser) return 0;
+  const buf = new Uint8Array(analyser.fftSize);
+  analyser.getByteTimeDomainData(buf);
+  let sum = 0;
+  for (let i = 0; i < buf.length; i++){
+    const v = (buf[i] - 128) / 128;
+    sum += v * v;
+  }
+  return Math.min(1, Math.sqrt(sum / buf.length) * 6);
+}
+
+const blobs = Array.from({length: 24}, () => ({
+  baseA: Math.random()*Math.PI*2,
+  baseR: 0.18 + Math.random()*0.70,
+  size:  0.10 + Math.random()*0.30,
+  speed: (0.2 + Math.random()*0.6)*(Math.random()<0.5?-1:1),
+  wobble: 0.15 + Math.random()*0.4
+}));
+
+function mix(a,b,t){ return a + (b-a)*t; }
+
+let t0 = performance.now();
+function draw(){
+  requestAnimationFrame(draw);
+  const t = (performance.now() - t0) / 1000;
+
+  const fallback = 0.25 + 0.20 * Math.sin(t*1.2);  // smooth, not too fast
+  const micVal = readAmplitude();
+  const target = micVal || fallback;
+  amp = amp * 0.85 + target * 0.15;
+
+  const W = canvas.width, H = canvas.height;
+  const CX = W/2, CY = H/2;
+  const rNow = R * (1 + 0.15*amp);
+
+  ctx.clearRect(0,0,W,H);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(CX,CY,rNow,0,Math.PI*2);
+  ctx.clip();
+
+  const baseGrad = ctx.createRadialGradient(CX,CY,rNow*0.15,CX,CY,rNow);
+  baseGrad.addColorStop(0,'rgba(120,190,255,0.35)');
+  baseGrad.addColorStop(1,'rgba(120,190,255,0)');
+  ctx.fillStyle = baseGrad;
+  ctx.fillRect(CX-rNow,CY-rNow,rNow*2,rNow*2);
+
+  ctx.globalCompositeOperation='lighter';
+  for (const b of blobs){
+    const a  = b.baseA + b.speed*t + Math.sin(t*0.8 + b.baseA)*0.25*b.wobble;
+    const rr = b.baseR * (1 + 0.06*Math.sin(t*0.9 + b.baseA));
+    const x  = CX + Math.cos(a)*rr*(rNow*0.95);
+    const y  = CY + Math.sin(a)*rr*(rNow*0.95);
+    const rad= rNow*b.size*(1 + 0.45*amp);
+
+    const cMix = Math.min(1, Math.max(0, rr+0.2));
+    const rCol = Math.floor(mix(90,160,cMix));
+    const gCol = Math.floor(mix(160,130,cMix));
+    const bCol = 255;
+
+    const g2 = ctx.createRadialGradient(x,y,rad*0.2,x,y,rad);
+    g2.addColorStop(0,`rgba(${rCol},${gCol},${bCol}, ${0.22 + 0.45*amp})`);
+    g2.addColorStop(1,`rgba(${rCol},${gCol},${bCol}, 0)`);
+    ctx.fillStyle = g2;
+    ctx.beginPath();
+    ctx.arc(x,y,rad,0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation='source-over';
+  ctx.restore();
+
+  ctx.beginPath();
+  ctx.arc(CX,CY,rNow,0,Math.PI*2);
+  ctx.shadowBlur = 40 + amp*80;
+  ctx.shadowColor='rgba(124,211,255,0.35)';
+  ctx.strokeStyle='rgba(124,211,255,0.12)';
+  ctx.lineWidth=2;
+  ctx.stroke();
+}
+draw();
+
+/* We keep mic-reactive code optional; if you want, you can wire initMic() to Play later */
+async function initMic(){
+  if (!navigator.mediaDevices?.getUserMedia) return;
+  if (!audioCtx){
+    try{
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      micStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+      const src = audioCtx.createMediaStreamSource(micStream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.6;
+      src.connect(analyser);
+    }catch(e){
+      console.error('Mic init failed:', e);
+    }
+  }
+}
+
+/* ===== Intro timing: clear, visible transition ===== */
+window.addEventListener('load', () => {
+  // let a few pulses happen
+  setTimeout(() => {
+    document.body.classList.remove('intro');
+  }, 2600);
+});
+
+/* ===== Difficulty pills ===== */
+document.querySelectorAll('.difficulty-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+/* ===== Menu toggle ===== */
+const menuBtn = document.getElementById('menuBtn');
+const menuPanel = document.getElementById('menuPanel');
+
+menuBtn.addEventListener('click', () => {
+  menuPanel.classList.toggle('open');
+});
+
+document.addEventListener('click', (e) => {
+  if (!menuPanel.contains(e.target) && !menuBtn.contains(e.target)){
+    menuPanel.classList.remove('open');
+  }
+});
+
+/* ===== Feedback mode ===== */
+const feedbackBtn = document.getElementById('feedbackBtn');
+const backBtn = document.getElementById('backBtn');
+
+feedbackBtn.addEventListener('click', () => {
+  document.body.classList.add('feedback-mode');
+});
+
+backBtn.addEventListener('click', () => {
+  document.body.classList.remove('feedback-mode');
+});
+
+/* Other controls – currently mock only */
+['playBtn','pauseBtn','restartBtn','hintBtn','answerBtn'].forEach(id=>{
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.addEventListener('click', async () => {
+    if(id === 'playBtn'){
+      // optional: tie fog movement to mic later
+      // await initMic();
+    }
+    console.log('Clicked:', id, '(mock only)');
+  });
+});
+</script>
+</body>
+</html>
