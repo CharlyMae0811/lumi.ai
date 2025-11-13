@@ -247,9 +247,9 @@
     background:rgba(10,18,28,.7);
     border:1px solid rgba(124,211,255,.18);
     border-radius:10px;
-    padding:10px 12px;
+    padding:6px 10px;          /* less padding */
     font-size:13px;
-    line-height:1.35;
+    line-height:1.2;           /* tighter line-height */
     overflow-y:auto;
   }
 
@@ -265,26 +265,29 @@
   }
 
   .msg{
-    margin-bottom:8px;
+    margin-bottom:4px;         /* closer together */
   }
+
 
   .msg-role{
     font-weight:600;
-    font-size:12px;
-    opacity:.85;
+    font-size:11px;            /* a bit smaller */
+    opacity:.9;
+    margin-bottom:1px;
   }
-
   .msg-role.lumi{ color:#9ee2ff; }
   .msg-role.am{ color:#f7d38c; }
 
   .msg-body{
     font-size:12px;
     color:var(--text-main);
+    margin-left:0.25rem;       /* very slight indent */
   }
 
   .msg-meta{
     font-size:11px;
     color:var(--text-soft);
+    margin-top:2px;
   }
 
   .two-col{
@@ -463,46 +466,69 @@
       <p class="panel-subtitle">
         Full history of this simulated call. Future versions will sync with real calls and Lumi’s memory.
       </p>
-      <div id="dialogueTranscript" class="box box-chat">
-        <div class="msg">
-          <div class="msg-role lumi">LUMI (Ada – Easy)</div>
-          <div class="msg-body">
-            Thanks for taking the time today! Before we dive in – what does success on Amazon look like
-            for you over the next 6–12 months?
-          </div>
-        </div>
-        <div class="msg">
-          <div class="msg-role am">You</div>
-          <div class="msg-body">
-            For this year we mainly want to stabilise our margins and avoid stockouts on our top 20 SKUs.
-          </div>
-        </div>
-        <div class="msg">
-          <div class="msg-role lumi">LUMI (Ada – Easy)</div>
-          <div class="msg-body">
-            That makes sense. I’m hearing two goals: margin stability and availability for your
-            hero products. Would it be okay if we focus first on your FBA inbound and placement issues,
-            then move to advertising efficiency?
-          </div>
-        </div>
-        <div class="msg">
-          <div class="msg-role am">You</div>
-          <div class="msg-body">
-            Yes, that sounds good. We’ve had several US-bound shipments delayed in customs recently.
-          </div>
-        </div>
-        <div class="msg">
-          <div class="msg-role lumi">LUMI (Ada – Easy)</div>
-          <div class="msg-body">
-            Got it. I’ll mirror this back to you and suggest a plan you can use with your real seller:
-            we’ll clarify the root cause of the delays, quantify the impact on your KPIs, and then
-            position ESM support as a way to de-risk your Q4 pipeline.
-          </div>
-        </div>
-        <div class="msg msg-meta">
-          Last updated • Scenario: “EU → US FBA customs issues” • Run #3
-        </div>
-      </div>
+     <div id="dialogueTranscript" class="box box-chat">
+  <div class="msg">
+    <div class="msg-role am">You – Account Manager</div>
+    <div class="msg-body">
+      Hi, this is Charlotte from Amazon. Thanks for taking the time today!
+      Before we dive in, could you give me a quick overview of your brand
+      and what you’re focusing on this quarter?
+    </div>
+  </div>
+
+  <div class="msg">
+    <div class="msg-role lumi">Seller – LUMI (Ada – Easy)</div>
+    <div class="msg-body">
+      Hi Charlotte, sure. We sell premium kitchen accessories in the US and EU.
+      Right now our main focus is keeping our top three ASINs in stock and
+      improving margins a bit – advertising costs have gone up a lot recently.
+    </div>
+  </div>
+
+  <div class="msg">
+    <div class="msg-role am">You – Account Manager</div>
+    <div class="msg-body">
+      That makes sense. So availability on your hero products and healthier
+      margins are the two main goals. To make sure I prioritise the right
+      topics for you today, are there any specific issues with FBA or
+      shipments that are worrying you at the moment?
+    </div>
+  </div>
+
+  <div class="msg">
+    <div class="msg-role lumi">Seller – LUMI (Ada – Easy)</div>
+    <div class="msg-body">
+      Yes, actually. Our last few shipments from Germany to US FBA were stuck
+      in customs for weeks. Some were even marked as abandoned. It’s hard
+      to plan inventory when that happens.
+    </div>
+  </div>
+
+  <div class="msg">
+    <div class="msg-role am">You – Account Manager</div>
+    <div class="msg-body">
+      I hear you – if inbound is unpredictable, it’s almost impossible to
+      protect your best-sellers. What I’d like to do is: first clarify what’s
+      triggering those delays, then translate the impact into lost sales, and
+      finally show you how we can reduce that risk going forward. How does that
+      plan sound?
+    </div>
+  </div>
+
+  <div class="msg">
+    <div class="msg-role lumi">Seller – LUMI (Ada – Easy)</div>
+    <div class="msg-body">
+      That sounds good. As long as we can avoid those “abandoned shipment”
+      notifications and keep our main ASINs in stock, I’m open to your
+      suggestions.
+    </div>
+  </div>
+
+  <div class="msg msg-meta">
+    Last updated • Scenario: “EU → US FBA customs delays” • Roleplay: You = AM, LUMI = Seller
+  </div>
+</div>
+
 
       <!-- Mic input panel (less prominent) -->
       <div class="panel panel-small panel-soft" style="margin-top:10px;">
